@@ -45,6 +45,7 @@ class Opportunity(models.Model):
     # Trạng thái & Giai đoạn
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
     stage = models.ForeignKey(PipelineStage, on_delete=models.PROTECT, related_name='opportunities')
+    lost_reason = models.TextField(blank=True, null=True, verbose_name="Lý do thất bại")
 
     # Ai phụ trách?
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='opportunities')
@@ -52,6 +53,7 @@ class Opportunity(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
 
     def __str__(self):
         return f"{self.title} - {self.value}"

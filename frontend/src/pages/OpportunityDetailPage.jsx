@@ -25,31 +25,33 @@ const OpportunityDetailPage = () => {
   const [stages, setStages] = useState([]);
   const [tasks, setTasks] = useState([]);
   
-  // State mới cho Sản phẩm
   const [items, setItems] = useState([]); 
-  const [productsList, setProductsList] = useState([]); // Danh mục SP để chọn
+  const [productsList, setProductsList] = useState([]); 
   
   const [loading, setLoading] = useState(false);
   const [logging, setLogging] = useState(false);
 
-  // Modal States
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false); // Modal thêm SP
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   
+  // --- STATE MỚI CHO MODAL LÝ DO THUA ---
+  const [isLostModalOpen, setIsLostModalOpen] = useState(false);
+  const [lostForm] = Form.useForm();
+  // --------------------------------------
+
   const [taskForm] = Form.useForm();
   const [productForm] = Form.useForm();
   
   const [creatingTask, setCreatingTask] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
 
-  // States Activity
   const [activityNote, setActivityNote] = useState('');
   const [activityType, setActivityType] = useState('CALL');
 
   useEffect(() => {
     fetchDetail();
     fetchStages();
-    fetchProducts(); // Tải danh mục sản phẩm
+    fetchProducts(); 
   }, [id]);
 
   const fetchDetail = async () => {
@@ -59,18 +61,15 @@ const OpportunityDetailPage = () => {
         axiosClient.get(`opportunities/${id}/`),
         axiosClient.get(`activities/?opportunity=${id}`),
         axiosClient.get(`tasks/?opportunity=${id}`),
-        axiosClient.get(`opportunity-items/?opportunity=${id}`) // API lấy SP
+        axiosClient.get(`opportunity-items/?opportunity=${id}`) 
       ]);
       
       setOpportunity(oppRes.data);
       setActivities(Array.isArray(actRes.data) ? actRes.data : (actRes.data.results || []));
-      
       const taskList = Array.isArray(taskRes.data) ? taskRes.data : (taskRes.data.results || []);
       setTasks(taskList.filter(t => !t.is_completed));
-
       const itemList = Array.isArray(itemRes.data) ? itemRes.data : (itemRes.data.results || []);
       setItems(itemList);
-
     } catch (error) {
       message.error('Không tìm thấy giao dịch!');
       navigate(-1);
@@ -101,7 +100,6 @@ const OpportunityDetailPage = () => {
              !name.includes('thua') && !name.includes('lost') && !name.includes('hủy');
   });
 
-  // --- XỬ LÝ SẢN PHẨM ---
   const handleAddProduct = async (values) => {
     setAddingProduct(true);
     try {
@@ -114,7 +112,7 @@ const OpportunityDetailPage = () => {
       message.success('Đã thêm sản phẩm');
       setIsProductModalOpen(false);
       productForm.resetFields();
-      fetchDetail(); // Tải lại để cập nhật danh sách SP
+      fetchDetail(); 
     } catch (error) {
       message.error('Lỗi thêm sản phẩm');
     } finally {
@@ -132,7 +130,6 @@ const OpportunityDetailPage = () => {
     }
   };
 
-  // Tự động điền đơn giá khi chọn sản phẩm
   const onProductChange = (productId) => {
     const product = productsList.find(p => p.id === productId);
     if (product) {
@@ -140,21 +137,44 @@ const OpportunityDetailPage = () => {
     }
   };
 
-  // --- CÁC HÀM CŨ ---
+  // --- XỬ LÝ NÚT CHỐT ĐƠN / THUA ---
   const handleCloseDeal = async (statusType) => {
+    if (statusType === 'LOST') {
+        // Nếu là Thua -> Mở modal nhập lý do
+        setIsLostModalOpen(true);
+        return;
+    }
+    
+    // Nếu là Thắng -> Xử lý ngay
+    submitStatusChange('WON');
+  };
+
+  // Hàm gọi API cập nhật trạng thái
+  const submitStatusChange = async (statusType, reason = null) => {
     try {
         let payload = { status: statusType };
+        if (reason) payload.lost_reason = reason; // Gửi kèm lý do nếu có
+
         let targetStage = null;
         if (statusType === 'WON') {
-            targetStage = stages.find(s => s.name.toLowerCase().includes('thắng') || s.name.toLowerCase().includes('won'));
+            targetStage = stages.find(s => s.type === 'WON');
         } else {
-            targetStage = stages.find(s => s.name.toLowerCase().includes('thua') || s.name.toLowerCase().includes('lost') || s.name.toLowerCase().includes('hủy'));
+            targetStage = stages.find(s => s.type === 'LOST');
         }
         if (targetStage) payload.stage = targetStage.id;
+
         await axiosClient.patch(`opportunities/${id}/`, payload);
         message.success(statusType === 'WON' ? 'Đã chốt đơn thành công' : 'Đã đóng giao dịch');
+        setIsLostModalOpen(false);
         fetchDetail();
-    } catch (error) { message.error('Lỗi cập nhật'); }
+    } catch (error) {
+        message.error('Lỗi cập nhật');
+    }
+  };
+
+  // Xử lý khi submit form lý do thua
+  const handleLostSubmit = (values) => {
+      submitStatusChange('LOST', values.lost_reason);
   };
 
   const handleChangeStage = async (newStageId) => {
@@ -193,7 +213,6 @@ const OpportunityDetailPage = () => {
 
   if (loading || !opportunity) return <Spin tip="Đang tải..." style={{ display: 'block', margin: '50px auto' }} />;
 
-  // --- CẤU HÌNH BẢNG SẢN PHẨM ---
   const itemColumns = [
     { title: 'Mã', dataIndex: 'product_code', key: 'code' },
     { title: 'Sản phẩm', dataIndex: 'product_name', key: 'name', render: t => <b>{t}</b> },
@@ -229,6 +248,12 @@ const OpportunityDetailPage = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Ngày đóng dự kiến">{dayjs(opportunity.expected_close_date).format('DD/MM/YYYY')}</Descriptions.Item>
               <Descriptions.Item label="Người phụ trách">{opportunity.owner_name}</Descriptions.Item>
+              {/* Hiện lý do thua nếu có */}
+              {opportunity.status === 'LOST' && opportunity.lost_reason && (
+                  <Descriptions.Item label={<span style={{color: 'red'}}>Lý do thất bại</span>}>
+                      {opportunity.lost_reason}
+                  </Descriptions.Item>
+              )}
             </Descriptions>
 
             <div style={{ marginTop: 24 }}>
@@ -356,7 +381,7 @@ const OpportunityDetailPage = () => {
         </Col>
       </Row>
 
-      {/* Modal Task */}
+      {/* MODAL 1: TASK */}
       <Modal title="Lên lịch Công việc" open={isTaskModalOpen} onCancel={() => setIsTaskModalOpen(false)} footer={null}>
         <Form form={taskForm} layout="vertical" onFinish={handleCreateTask}>
             <Form.Item name="title" label="Việc cần làm" rules={[{ required: true }]}><Input placeholder="VD: Gọi lại chốt giá..." /></Form.Item>
@@ -372,7 +397,7 @@ const OpportunityDetailPage = () => {
         </Form>
       </Modal>
 
-      {/* Modal Product */}
+      {/* MODAL 2: PRODUCT */}
       <Modal title="Thêm Sản phẩm vào Giao dịch" open={isProductModalOpen} onCancel={() => setIsProductModalOpen(false)} footer={null}>
          <Form form={productForm} layout="vertical" onFinish={handleAddProduct}>
             <Form.Item name="product" label="Sản phẩm / Dịch vụ" rules={[{ required: true }]}>
@@ -386,6 +411,17 @@ const OpportunityDetailPage = () => {
             </Row>
             <Button type="primary" htmlType="submit" block loading={addingProduct}>Thêm vào đơn</Button>
          </Form>
+      </Modal>
+
+      {/* MODAL 3: LOST REASON (MỚI) */}
+      <Modal title="Xác nhận Thất bại" open={isLostModalOpen} onCancel={() => setIsLostModalOpen(false)} footer={null}>
+          <p>Rất tiếc vì chúng ta đã mất đơn hàng này. Vui lòng cho biết lý do:</p>
+          <Form form={lostForm} layout="vertical" onFinish={handleLostSubmit}>
+              <Form.Item name="lost_reason" rules={[{ required: true, message: 'Vui lòng nhập lý do' }]}>
+                  <TextArea rows={3} placeholder="VD: Giá quá cao, Khách chọn đối thủ A, Không liên lạc được..." />
+              </Form.Item>
+              <Button danger type="primary" htmlType="submit" block>Xác nhận Đóng</Button>
+          </Form>
       </Modal>
     </div>
   );
