@@ -1,0 +1,61 @@
+/* src/Auth.css */
+
+/* Container chính bao phủ toàn màn hình */
+.auth-wrapper {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Phần bên trái: Chứa Form */
+.auth-form-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  background-color: #ffffff;
+  padding: 40px;
+}
+
+/* Phần bên phải: Chứa ảnh nền/minh họa */
+.auth-banner-container {
+  height: 100%;
+  /* Gradient xanh đậm chuyên nghiệp */
+  background: linear-gradient(135deg, #001529 0%, #1890ff 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  text-align: center;
+  padding: 60px;
+}
+
+/* Typography cho bên phải */
+.banner-title {
+  font-size: 36px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.banner-desc {
+  font-size: 18px;
+  opacity: 0.8;
+  max-width: 400px;
+}
+
+/* Ảnh minh họa */
+.banner-img {
+  width: 80%;
+  max-width: 500px;
+  margin-bottom: 40px;
+  /* Hiệu ứng trôi nhẹ */
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translatey(0px); }
+  50% { transform: translatey(-20px); }
+  100% { transform: translatey(0px); }
+}
