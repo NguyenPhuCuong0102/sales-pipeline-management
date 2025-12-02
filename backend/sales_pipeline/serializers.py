@@ -1,6 +1,5 @@
 from rest_framework import serializers
-# --- QUAN TRỌNG: Đã thêm Task vào dòng dưới đây ---
-from .models import Customer, PipelineStage, Opportunity, Activity, Task
+from .models import Customer, PipelineStage, Opportunity, Activity, Task, Product, OpportunityItem
 from users.models import CustomUser
 
 # 1. Serializer cho User
@@ -44,7 +43,7 @@ class ActivitySerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['user', 'created_at']
 
-# 6. Serializer cho Công việc (Task) - MỚI
+# 6. Serializer cho Công việc (Task)
 class TaskSerializer(serializers.ModelSerializer):
     opportunity_name = serializers.ReadOnlyField(source='opportunity.title')
     
@@ -52,3 +51,19 @@ class TaskSerializer(serializers.ModelSerializer):
         model = Task
         fields = '__all__'
         read_only_fields = ['assigned_to', 'created_at']
+
+# 7. Serializer cho Sản phẩm (Product) - [MỚI]
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = '__all__'
+
+# 8. Serializer cho Chi tiết Giao dịch - [MỚI]
+class OpportunityItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.ReadOnlyField(source='product.name')
+    product_code = serializers.ReadOnlyField(source='product.code')
+    total_price = serializers.ReadOnlyField() # Trường tính toán (quantity * price)
+
+    class Meta:
+        model = OpportunityItem
+        fields = '__all__'

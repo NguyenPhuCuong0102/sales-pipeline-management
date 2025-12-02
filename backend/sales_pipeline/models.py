@@ -94,3 +94,31 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+class Product(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Tên sản phẩm")
+    code = models.CharField(max_length=50, unique=True, verbose_name="Mã sản phẩm")
+    price = models.DecimalField(max_digits=15, decimal_places=2, verbose_name="Đơn giá niêm yết")
+    description = models.TextField(blank=True, null=True, verbose_name="Mô tả")
+    is_active = models.BooleanField(default=True, verbose_name="Đang kinh doanh")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+    
+    # 7. Chi tiết Giao dịch (Sản phẩm trong cơ hội) - [MỚI]
+class OpportunityItem(models.Model):
+    opportunity = models.ForeignKey(Opportunity, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT) # Không xóa được SP nếu đã có đơn hàng
+    
+    quantity = models.IntegerField(default=1, verbose_name="Số lượng")
+    unit_price = models.DecimalField(max_digits=15, decimal_places=2, verbose_name="Đơn giá thực bán")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def total_price(self):
+        return self.quantity * self.unit_price
+
+    def __str__(self):
+        return f"{self.opportunity.title} - {self.product.name}"

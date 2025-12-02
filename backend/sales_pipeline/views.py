@@ -4,18 +4,15 @@ from rest_framework.response import Response
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import timedelta
-
 import csv
 from django.http import HttpResponse
-
-import csv
 import io
 from rest_framework.parsers import MultiPartParser, FormParser
 
-from .models import Customer, PipelineStage, Opportunity, Activity, Task
+from .models import Customer, PipelineStage, Opportunity, Activity, Task, Product, OpportunityItem
 from .serializers import (
     CustomerSerializer, PipelineStageSerializer, 
-    OpportunitySerializer, ActivitySerializer, TaskSerializer
+    OpportunitySerializer, ActivitySerializer, TaskSerializer, ProductSerializer, OpportunityItemSerializer
 )
 
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -45,23 +42,17 @@ class OpportunityViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = serializer.save()
-        
-        # LOGIC MỚI: Dựa vào 'type' của giai đoạn để cập nhật trạng thái
         if instance.stage:
             stage_type = instance.stage.type
-            
             if stage_type == 'WON':
                 if instance.status != 'WON':
                     instance.status = 'WON'
                     instance.save()
-            
             elif stage_type == 'LOST':
                 if instance.status != 'LOST':
                     instance.status = 'LOST'
                     instance.save()
-            
-            else: # Loại OPEN
-                # Nếu đang ở trạng thái đóng mà chuyển về giai đoạn mở -> Mở lại
+            else:
                 if instance.status in ['WON', 'LOST']:
                     instance.status = 'OPEN'
                     instance.save()
@@ -84,11 +75,9 @@ class OpportunityViewSet(viewsets.ModelViewSet):
         customer = self.request.query_params.get('customer')
         if customer:
             queryset = queryset.filter(customer_id=customer)
-        # [MỚI] Lọc theo Nhân viên phụ trách (Owner) - Dành cho Manager
         owner = self.request.query_params.get('owner')
         if owner:
             queryset = queryset.filter(owner_id=owner)
-            
         return queryset
 
 class ActivityViewSet(viewsets.ModelViewSet):
@@ -127,38 +116,55 @@ class TaskViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(opportunity_id=opp_id)
         return queryset
 
+# --- [MỚI] Product ViewSet ---
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Product.objects.all()
+        # Lọc sản phẩm đang kinh doanh
+        active = self.request.query_params.get('active')
+        if active == 'true':
+            queryset = queryset.filter(is_active=True)
+        return queryset
+
+# --- [MỚI] API Quản lý Sản phẩm trong Giao dịch ---
+class OpportunityItemViewSet(viewsets.ModelViewSet):
+    queryset = OpportunityItem.objects.all()
+    serializer_class = OpportunityItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = OpportunityItem.objects.all()
+        # Lọc theo Opportunity ID (để hiển thị trong trang chi tiết)
+        opp_id = self.request.query_params.get('opportunity')
+        if opp_id:
+            queryset = queryset.filter(opportunity_id=opp_id)
+        return queryset
+
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-
     def get(self, request):
         user = request.user
-        
         if user.role == 'REP':
             opps = Opportunity.objects.filter(owner=user)
         else:
             opps = Opportunity.objects.all()
-
         revenue_deals = opps.filter(status__in=['OPEN', 'WON'])
         expected_revenue = revenue_deals.aggregate(total=Sum('value'))['total'] or 0
         open_deals_count = opps.filter(status='OPEN').count()
-        
         last_30_days = timezone.now() - timedelta(days=30)
         new_customers_count = Customer.objects.filter(created_at__gte=last_30_days).count()
-
         won_count = opps.filter(status='WON').count()
         closed_count = won_count + opps.filter(status='LOST').count()
         win_rate = round((won_count / closed_count) * 100, 1) if closed_count > 0 else 0
-
         chart_data = opps.filter(status='OPEN').values('stage__name').annotate(total=Sum('value')).order_by('total')
         revenue_by_stage = [{"name": i['stage__name'], "value": i['total']} for i in chart_data]
-
-        upcoming_deals = opps.filter(status='OPEN', expected_close_date__gte=timezone.now().date())\
-            .order_by('expected_close_date')[:5]\
-            .values('id', 'title', 'expected_close_date', 'value')
-
+        upcoming_deals = opps.filter(status='OPEN', expected_close_date__gte=timezone.now().date()).order_by('expected_close_date')[:5].values('id', 'title', 'expected_close_date', 'value')
         my_tasks = Task.objects.filter(assigned_to=user, is_completed=False).order_by('due_date')[:5]
         tasks_data = TaskSerializer(my_tasks, many=True).data
-
         return Response({
             "expected_revenue": expected_revenue,
             "open_deals_count": open_deals_count,
@@ -171,93 +177,47 @@ class DashboardStatsView(APIView):
     
 class ExportOpportunityView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-
     def get(self, request):
         user = request.user
-        
-        # 1. Lọc dữ liệu theo quyền
         if user.role == 'REP':
             queryset = Opportunity.objects.filter(owner=user)
         else:
             queryset = Opportunity.objects.all()
-
-        # 2. Tạo phản hồi HTTP dạng file đính kèm
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="opportunities_export.csv"'
-        # Thêm BOM cho Excel hiển thị đúng tiếng Việt
         response.write(u'\ufeff'.encode('utf8')) 
-
         writer = csv.writer(response)
-        
-        # 3. Viết dòng tiêu đề (Header)
         writer.writerow(['ID', 'Tên Giao dịch', 'Khách hàng', 'Giá trị', 'Ngày đóng', 'Giai đoạn', 'Trạng thái', 'Người phụ trách', 'Ngày tạo'])
-
-        # 4. Viết dữ liệu
         for opp in queryset:
             writer.writerow([
-                str(opp.id),
-                opp.title,
-                opp.customer.name if opp.customer else '',
-                opp.value,
-                opp.expected_close_date,
-                opp.stage.name if opp.stage else '',
-                opp.get_status_display(), # Lấy tên hiển thị (VD: 'Thắng' thay vì 'WON')
-                opp.owner.username if opp.owner else '',
+                str(opp.id), opp.title, opp.customer.name if opp.customer else '', opp.value,
+                opp.expected_close_date, opp.stage.name if opp.stage else '',
+                opp.get_status_display(), opp.owner.username if opp.owner else '',
                 opp.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             ])
-
         return response
     
 class ImportCustomerView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser] # Để nhận file upload
-
+    parser_classes = [MultiPartParser, FormParser]
     def post(self, request):
-        if 'file' not in request.FILES:
-            return Response({"error": "Chưa chọn file"}, status=400)
-        
+        if 'file' not in request.FILES: return Response({"error": "Chưa chọn file"}, status=400)
         file = request.FILES['file']
-        
-        # Kiểm tra đuôi file
-        if not file.name.endswith('.csv'):
-            return Response({"error": "Vui lòng upload file định dạng .csv"}, status=400)
-
+        if not file.name.endswith('.csv'): return Response({"error": "Vui lòng upload file định dạng .csv"}, status=400)
         try:
-            # Đọc file CSV
-            decoded_file = file.read().decode('utf-8-sig') # utf-8-sig để xử lý BOM của Excel
+            decoded_file = file.read().decode('utf-8-sig')
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
-            
             count = 0
             errors = []
-
             for index, row in enumerate(reader):
                 try:
-                    # Lấy dữ liệu từ cột (Cần file mẫu chuẩn header)
                     name = row.get('Tên Khách hàng') or row.get('name')
                     email = row.get('Email') or row.get('email')
                     phone = row.get('SĐT') or row.get('phone')
-
-                    if not name:
-                        continue # Bỏ qua dòng không có tên
-
-                    # Kiểm tra trùng lặp (nếu email đã có thì update hoặc bỏ qua)
-                    # Ở đây ta dùng get_or_create để tránh trùng
-                    obj, created = Customer.objects.get_or_create(
-                        email=email,
-                        defaults={'name': name, 'phone': phone}
-                    )
-                    
-                    if created:
-                        count += 1
-                        
-                except Exception as e:
-                    errors.append(f"Dòng {index + 2}: {str(e)}")
-
-            return Response({
-                "message": f"Đã nhập thành công {count} khách hàng.",
-                "errors": errors
-            })
-
-        except Exception as e:
-            return Response({"error": f"Lỗi đọc file: {str(e)}"}, status=400)
+                    if not name: continue
+                    obj, created = Customer.objects.get_or_create(email=email, defaults={'name': name, 'phone': phone})
+                    if created: count += 1
+                except Exception as e: errors.append(f"Dòng {index + 2}: {str(e)}")
+            return Response({"message": f"Đã nhập thành công {count} khách hàng.", "errors": errors})
+        except Exception as e: return Response({"error": f"Lỗi đọc file: {str(e)}"}, status=400)

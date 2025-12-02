@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CustomerViewSet, PipelineStageViewSet, OpportunityViewSet, 
     ActivityViewSet, DashboardStatsView, TaskViewSet,
-    ExportOpportunityView, ImportCustomerView
+    ExportOpportunityView, ImportCustomerView, ProductViewSet, OpportunityItemViewSet
 )
 
 # Router tự động sinh ra các đường dẫn như /opportunities/, /opportunities/1/ ...
@@ -13,6 +13,8 @@ router.register(r'stages', PipelineStageViewSet)
 router.register(r'opportunities', OpportunityViewSet)
 router.register(r'activities', ActivityViewSet)
 router.register(r'tasks', TaskViewSet)
+router.register(r'products', ProductViewSet)
+router.register(r'opportunity-items', OpportunityItemViewSet)
 
 urlpatterns = [
     # Ưu tiên các đường dẫn cụ thể lên trước router
