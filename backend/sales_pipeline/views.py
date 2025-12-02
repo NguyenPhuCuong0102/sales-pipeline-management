@@ -5,6 +5,7 @@ from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from datetime import timedelta
+from users.permissions import IsManagerOrAdmin
 import csv
 from django.http import HttpResponse
 import io
@@ -33,7 +34,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 class PipelineStageViewSet(viewsets.ModelViewSet):
     queryset = PipelineStage.objects.all()
     serializer_class = PipelineStageSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsManagerOrAdmin]
 
 class OpportunityViewSet(viewsets.ModelViewSet):
     queryset = Opportunity.objects.all()
@@ -159,14 +160,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
-    def get_queryset(self):
-        queryset = Product.objects.all()
-        active = self.request.query_params.get('active')
-        if active == 'true':
-            queryset = queryset.filter(is_active=True)
-        return queryset
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsManagerOrAdmin()]
 
 class OpportunityItemViewSet(viewsets.ModelViewSet):
     queryset = OpportunityItem.objects.all()

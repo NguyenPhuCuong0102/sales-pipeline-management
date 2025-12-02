@@ -25,4 +25,4 @@ class Command(BaseCommand):
                     fail_silently=True
                 )
         
-        self.stdout.write(self.style.SUCCESS(f'Đã gửi nhắc nhở cho {opps.count()} giao dịch.'))
+        self.stdout.write(self.style.SUCCESS(f'Đã gửi nhắc nhở cho {opps.count()} giao dịch.')) 

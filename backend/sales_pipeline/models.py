@@ -47,7 +47,7 @@ class Opportunity(models.Model):
     stage = models.ForeignKey(PipelineStage, on_delete=models.PROTECT, related_name='opportunities')
 
     # Ai phụ trách?
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='opportunities')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='opportunities')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='opportunities')
 
     created_at = models.DateTimeField(auto_now_add=True)

@@ -6,6 +6,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from .models import CustomUser
+from .permissions import IsManagerOrAdmin
 from .serializers import (
     RegisterSerializer, UserSerializer, ChangePasswordSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer
@@ -36,7 +37,7 @@ class CurrentUserView(APIView):
 # 3. View Quản lý Nhân viên (User CRUD)
 class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsManagerOrAdmin]
 
     def get_serializer_class(self):
         if self.action == 'create':
