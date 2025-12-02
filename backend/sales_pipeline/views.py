@@ -143,6 +143,29 @@ class OpportunityItemViewSet(viewsets.ModelViewSet):
         if opp_id:
             queryset = queryset.filter(opportunity_id=opp_id)
         return queryset
+    # Hàm phụ trợ để tính lại tổng tiền
+    def update_opportunity_value(self, opportunity):
+        # Tính tổng tiền các items
+        total = opportunity.items.aggregate(
+            total=Sum(F('quantity') * F('unit_price'), output_field=models.DecimalField())
+        )['total'] or 0
+        
+        # Cập nhật vào Opportunity
+        opportunity.value = total
+        opportunity.save()
+
+    def perform_create(self, serializer):
+        item = serializer.save()
+        self.update_opportunity_value(item.opportunity)
+
+    def perform_update(self, serializer):
+        item = serializer.save()
+        self.update_opportunity_value(item.opportunity)
+
+    def perform_destroy(self, instance):
+        opportunity = instance.opportunity
+        instance.delete()
+        self.update_opportunity_value(opportunity)
 
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
