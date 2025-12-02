@@ -153,7 +153,8 @@ const OpportunityDetailPage = () => {
   const submitStatusChange = async (statusType, reason = null) => {
     try {
         let payload = { status: statusType };
-        if (reason) payload.lost_reason = reason; // Gửi kèm lý do nếu có
+        if (reasonText) payload.lost_reason = reasonText;
+        if (reasonCode) payload.lost_reason_code = reasonCode; // Gửi kèm lý do nếu có
 
         let targetStage = null;
         if (statusType === 'WON') {
@@ -174,7 +175,7 @@ const OpportunityDetailPage = () => {
 
   // Xử lý khi submit form lý do thua
   const handleLostSubmit = (values) => {
-      submitStatusChange('LOST', values.lost_reason);
+      submitStatusChange('LOST', values.lost_reason_code, values.lost_reason);
   };
 
   const handleChangeStage = async (newStageId) => {
@@ -413,13 +414,35 @@ const OpportunityDetailPage = () => {
          </Form>
       </Modal>
 
-      {/* MODAL 3: LOST REASON (MỚI) */}
       <Modal title="Xác nhận Thất bại" open={isLostModalOpen} onCancel={() => setIsLostModalOpen(false)} footer={null}>
-          <p>Rất tiếc vì chúng ta đã mất đơn hàng này. Vui lòng cho biết lý do:</p>
+          <p>Rất tiếc vì chúng ta đã mất đơn hàng này. Vui lòng phân loại lý do:</p>
           <Form form={lostForm} layout="vertical" onFinish={handleLostSubmit}>
-              <Form.Item name="lost_reason" rules={[{ required: true, message: 'Vui lòng nhập lý do' }]}>
-                  <TextArea rows={3} placeholder="VD: Giá quá cao, Khách chọn đối thủ A, Không liên lạc được..." />
+              
+              {/* 1. Chọn nhóm lý do (Bắt buộc) */}
+              <Form.Item 
+                name="lost_reason_code" 
+                label="Nhóm nguyên nhân chính"
+                rules={[{ required: true, message: 'Vui lòng chọn nhóm nguyên nhân' }]}
+              >
+                  <Select placeholder="-- Chọn lý do --">
+                      <Select.Option value="PRICE">Giá quá cao</Select.Option>
+                      <Select.Option value="COMPETITOR">Đối thủ cạnh tranh tốt hơn</Select.Option>
+                      <Select.Option value="FEATURES">Thiếu tính năng / Sản phẩm không phù hợp</Select.Option>
+                      <Select.Option value="TIMING">Không đúng thời điểm</Select.Option>
+                      <Select.Option value="BUDGET">Khách hết ngân sách</Select.Option>
+                      <Select.Option value="OTHER">Lý do khác...</Select.Option>
+                  </Select>
               </Form.Item>
+
+              {/* 2. Nhập chi tiết (Text) */}
+              <Form.Item 
+                name="lost_reason" 
+                label="Ghi chú chi tiết (Vấn đề cụ thể)"
+                // Không bắt buộc nếu đã chọn nhóm, hoặc bắt buộc nếu chọn OTHER (tùy bạn)
+              >
+                  <TextArea rows={3} placeholder="VD: Đối thủ A giảm giá 20%..." />
+              </Form.Item>
+
               <Button danger type="primary" htmlType="submit" block>Xác nhận Đóng</Button>
           </Form>
       </Modal>

@@ -252,6 +252,25 @@ class DashboardStatsView(APIView):
             for m in monthly_sales
         ]
 
+        lost_analysis = opps.filter(status='LOST')\
+            .values('lost_reason_code')\
+            .annotate(count=Count('id'))\
+            .order_by('-count')
+        
+        lost_reason_data = []
+        # Map từ mã code sang tên hiển thị tiếng Việt
+        reason_dict = dict(Opportunity.LostReason.choices) 
+
+        for item in lost_analysis:
+            code = item['lost_reason_code']
+            # Nếu code rỗng (do dữ liệu cũ) hoặc OTHER thì gom vào nhóm 'Khác'
+            label = reason_dict.get(code, "Chưa phân loại/Khác")
+            
+            lost_reason_data.append({
+                "name": label, 
+                "value": item['count']
+            })
+
         return Response({
             "expected_revenue": expected_revenue,
             "open_deals_count": open_deals_count,
@@ -261,6 +280,7 @@ class DashboardStatsView(APIView):
             "upcoming_deals": upcoming_deals,
             "my_tasks": tasks_data,
             "rep_performance": rep_performance,
+            "lost_reason_data": lost_reason_data,
         })
     permission_classes = [permissions.IsAuthenticated]
     def get(self, request):

@@ -37,6 +37,14 @@ class Opportunity(models.Model):
         OPEN = 'OPEN', 'Đang mở'
         WON = 'WON', 'Thắng (Thành công)'
         LOST = 'LOST', 'Thua (Thất bại)'
+    
+    class LostReason(models.TextChoices):
+        PRICE = 'PRICE', 'Giá quá cao'
+        COMPETITOR = 'COMPETITOR', 'Đối thủ tốt hơn'
+        FEATURES = 'FEATURES', 'Thiếu tính năng/Sản phẩm'
+        TIMING = 'TIMING', 'Không đúng thời điểm'
+        BUDGET = 'BUDGET', 'Hết ngân sách'
+        OTHER = 'OTHER', 'Lý do khác'
 
     title = models.CharField(max_length=255, verbose_name="Tên giao dịch")
     value = models.DecimalField(max_digits=15, decimal_places=2, verbose_name="Giá trị dự kiến")
@@ -45,7 +53,8 @@ class Opportunity(models.Model):
     # Trạng thái & Giai đoạn
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
     stage = models.ForeignKey(PipelineStage, on_delete=models.PROTECT, related_name='opportunities')
-    lost_reason = models.TextField(blank=True, null=True, verbose_name="Lý do thất bại")
+    lost_reason_code = models.CharField(max_length=20, choices=LostReason.choices, null=True, blank=True, verbose_name="Mã lý do thua")
+    lost_reason = models.TextField(blank=True, null=True, verbose_name="Chi tiết lý do")
 
     # Ai phụ trách?
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='opportunities')
@@ -74,6 +83,8 @@ class Activity(models.Model):
 
     class Meta:
         ordering = ['-created_at'] # Mới nhất lên đầu
+
+        
 
 class Task(models.Model):
     class Priority(models.TextChoices):

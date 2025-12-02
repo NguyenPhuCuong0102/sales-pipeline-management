@@ -11,7 +11,7 @@ import {
   CheckCircleOutlined
 } from '@ant-design/icons';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie,
 } from 'recharts';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -280,21 +280,61 @@ const DashboardPage = () => {
     </Card>
   );
 
+  const LostReasonChart = () => {
+    // Màu sắc cho các múi tròn
+    const COLORS = ['#ff4d4f', '#ff7a45', '#ffa940', '#ffc53d', '#bae637'];
+
+    return (
+        <Card 
+            title={<span>📉 Phân tích Lý do Thất bại</span>} 
+            bordered={false} 
+            style={cardStyle} 
+            headStyle={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}
+        >
+            {data.lost_reason_data && data.lost_reason_data.length > 0 ? (
+                <div style={{ width: '100%', height: 320 }}>
+                    <ResponsiveContainer>
+                        <PieChart>
+                            <Pie
+                                data={data.lost_reason_data}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60} // Tạo biểu đồ hình bánh donut
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                                {data.lost_reason_data.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <RechartsTooltip formatter={(value, name, props) => [value, props.payload.full_name]} />
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                <Empty description="Chưa có dữ liệu thất bại" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '50px 0' }} />
+            )}
+        </Card>
+    );
+  };
+
+  
+
   return (
     <div>
       <h2 style={{ marginBottom: 24, fontWeight: 700, color: '#262626' }}>
         {user?.role === 'MANAGER' ? '📊 Bảng Điều khiển Quản lý' : `🚀 Xin chào, ${user?.username}`}
       </h2>
-      
-      {/* 1. KPI Cards */}
       <KpiCards />
-
-      {/* 2. Main Content */}
       <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
         {user?.role === 'MANAGER' ? (
             <>
-                <Col xs={24} lg={14}><RevenueChart /></Col>
-                <Col xs={24} lg={10}><UpcomingList /></Col>
+              <Col xs={24} lg={14}><RevenueChart /></Col>
+              <Col xs={24} lg={10}><LostReasonChart /></Col> 
+              <Col xs={24} span={24} style={{marginTop: 16}}><UpcomingList /></Col>
             </>
         ) : (
             <>
