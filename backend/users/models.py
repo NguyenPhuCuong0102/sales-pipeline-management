@@ -3,7 +3,6 @@ from django.db import models
 
 class CustomUser(AbstractUser):
     class Role(models.TextChoices):
-        ADMIN = 'ADMIN', 'Quản trị viên'
         SALES_MANAGER = 'MANAGER', 'Trưởng phòng KD'
         SALES_REP = 'REP', 'Nhân viên KD'
 

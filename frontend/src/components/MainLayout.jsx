@@ -36,7 +36,7 @@ const MainLayout = () => {
     { key: '/kanban', icon: <AppstoreOutlined />, label: 'Pipeline (Kanban)' },
     { key: '/opportunities', icon: <ProjectOutlined />, label: 'Cơ hội bán hàng' },
     { key: '/customers', icon: <TeamOutlined />, label: 'Khách hàng' },
-    (user?.role === 'ADMIN' || user?.role === 'MANAGER') && {
+    (user?.role === 'MANAGER') && {
       key: '/settings',
       icon: <SettingOutlined />,
       label: 'Quản trị hệ thống',

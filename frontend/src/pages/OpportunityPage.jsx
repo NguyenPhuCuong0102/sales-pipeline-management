@@ -27,7 +27,7 @@ const OpportunityPage = () => {
     search: '',
     status: '',
     stage: '',
-    owner: '' // Thêm filter owner
+    owner: '' 
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,7 +35,7 @@ const OpportunityPage = () => {
   const [editingId, setEditingId] = useState(null);
   const [form] = Form.useForm();
 
-  const isManager = user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const isManager = user?.role === 'MANAGER';
 
   useEffect(() => {
     document.title = "Quản lý Cơ hội - Core CRM";

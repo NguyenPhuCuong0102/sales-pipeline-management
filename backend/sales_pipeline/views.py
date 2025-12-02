@@ -2,17 +2,20 @@ from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Sum, Count, Q
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from datetime import timedelta
 import csv
 from django.http import HttpResponse
 import io
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.core.mail import send_mail # <--- Import để gửi mail
 
 from .models import Customer, PipelineStage, Opportunity, Activity, Task, Product, OpportunityItem
 from .serializers import (
     CustomerSerializer, PipelineStageSerializer, 
-    OpportunitySerializer, ActivitySerializer, TaskSerializer, ProductSerializer, OpportunityItemSerializer
+    OpportunitySerializer, ActivitySerializer, TaskSerializer, ProductSerializer,
+    OpportunityItemSerializer
 )
 
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -40,22 +43,46 @@ class OpportunityViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    # --- [NÂNG CẤP] AUDIT LOG & AUTO STATUS ---
     def perform_update(self, serializer):
+        # 1. Lấy dữ liệu cũ trước khi lưu
+        old_instance = self.get_object()
+        old_status = old_instance.status
+        old_stage = old_instance.stage
+        old_value = old_instance.value
+
+        # 2. Lưu dữ liệu mới
         instance = serializer.save()
+        
+        # 3. Ghi Log thay đổi (Audit Log)
+        changes = []
+        if old_status != instance.status:
+            changes.append(f"Trạng thái: {old_status} -> {instance.status}")
+        if old_stage != instance.stage:
+            changes.append(f"Giai đoạn: {old_stage.name} -> {instance.stage.name}")
+        if old_value != instance.value:
+            changes.append(f"Giá trị: {old_value:,.0f} -> {instance.value:,.0f}")
+
+        if changes:
+            Activity.objects.create(
+                opportunity=instance,
+                user=self.request.user,
+                type='NOTE', # Dùng loại NOTE để ghi log hệ thống
+                summary=f"🔴 Cập nhật hệ thống: {'; '.join(changes)}"
+            )
+
+        # 4. Logic tự động cập nhật Status theo Stage (như cũ)
         if instance.stage:
             stage_type = instance.stage.type
-            if stage_type == 'WON':
-                if instance.status != 'WON':
-                    instance.status = 'WON'
-                    instance.save()
-            elif stage_type == 'LOST':
-                if instance.status != 'LOST':
-                    instance.status = 'LOST'
-                    instance.save()
-            else:
-                if instance.status in ['WON', 'LOST']:
-                    instance.status = 'OPEN'
-                    instance.save()
+            if stage_type == 'WON' and instance.status != 'WON':
+                instance.status = 'WON'
+                instance.save()
+            elif stage_type == 'LOST' and instance.status != 'LOST':
+                instance.status = 'LOST'
+                instance.save()
+            elif stage_type == 'OPEN' and instance.status in ['WON', 'LOST']:
+                instance.status = 'OPEN'
+                instance.save()
 
     def get_queryset(self):
         user = self.request.user
@@ -106,8 +133,21 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    # --- [NÂNG CẤP] GỬI EMAIL THÔNG BÁO ---
     def perform_create(self, serializer):
-        serializer.save(assigned_to=self.request.user)
+        task = serializer.save(assigned_to=self.request.user)
+        
+        # Gửi email thông báo
+        try:
+            send_mail(
+                subject=f"Công việc mới: {task.title}",
+                message=f"Bạn vừa tạo một công việc mới trên CRM.\nHạn chót: {task.due_date}\nƯu tiên: {task.get_priority_display()}",
+                from_email=None, # Dùng mặc định trong settings
+                recipient_list=[self.request.user.email],
+                fail_silently=True
+            )
+        except Exception as e:
+            print("Lỗi gửi mail:", e)
 
     def get_queryset(self):
         queryset = Task.objects.filter(assigned_to=self.request.user)
@@ -116,7 +156,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(opportunity_id=opp_id)
         return queryset
 
-# --- [MỚI] Product ViewSet ---
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -124,13 +163,11 @@ class ProductViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = Product.objects.all()
-        # Lọc sản phẩm đang kinh doanh
         active = self.request.query_params.get('active')
         if active == 'true':
             queryset = queryset.filter(is_active=True)
         return queryset
 
-# --- [MỚI] API Quản lý Sản phẩm trong Giao dịch ---
 class OpportunityItemViewSet(viewsets.ModelViewSet):
     queryset = OpportunityItem.objects.all()
     serializer_class = OpportunityItemSerializer
@@ -138,19 +175,15 @@ class OpportunityItemViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = OpportunityItem.objects.all()
-        # Lọc theo Opportunity ID (để hiển thị trong trang chi tiết)
         opp_id = self.request.query_params.get('opportunity')
         if opp_id:
             queryset = queryset.filter(opportunity_id=opp_id)
         return queryset
-    # Hàm phụ trợ để tính lại tổng tiền
+
     def update_opportunity_value(self, opportunity):
-        # Tính tổng tiền các items
         total = opportunity.items.aggregate(
             total=Sum(F('quantity') * F('unit_price'), output_field=models.DecimalField())
         )['total'] or 0
-        
-        # Cập nhật vào Opportunity
         opportunity.value = total
         opportunity.save()
 
@@ -169,25 +202,58 @@ class OpportunityItemViewSet(viewsets.ModelViewSet):
 
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    
     def get(self, request):
         user = request.user
+        
         if user.role == 'REP':
             opps = Opportunity.objects.filter(owner=user)
         else:
             opps = Opportunity.objects.all()
+
+        # KPIs
         revenue_deals = opps.filter(status__in=['OPEN', 'WON'])
         expected_revenue = revenue_deals.aggregate(total=Sum('value'))['total'] or 0
         open_deals_count = opps.filter(status='OPEN').count()
+        
         last_30_days = timezone.now() - timedelta(days=30)
         new_customers_count = Customer.objects.filter(created_at__gte=last_30_days).count()
+
         won_count = opps.filter(status='WON').count()
         closed_count = won_count + opps.filter(status='LOST').count()
         win_rate = round((won_count / closed_count) * 100, 1) if closed_count > 0 else 0
+
+        # Chart Data (Manager) - Doanh thu theo Giai đoạn
         chart_data = opps.filter(status='OPEN').values('stage__name').annotate(total=Sum('value')).order_by('total')
         revenue_by_stage = [{"name": i['stage__name'], "value": i['total']} for i in chart_data]
+
+        # Upcoming Deals
         upcoming_deals = opps.filter(status='OPEN', expected_close_date__gte=timezone.now().date()).order_by('expected_close_date')[:5].values('id', 'title', 'expected_close_date', 'value')
+
+        # My Tasks
         my_tasks = Task.objects.filter(assigned_to=user, is_completed=False).order_by('due_date')[:5]
         tasks_data = TaskSerializer(my_tasks, many=True).data
+
+        # --- [CẬP NHẬT] BIỂU ĐỒ HIỆU SUẤT (CÓ BỘ LỌC THÁNG) ---
+        # Lấy số tháng từ tham số URL (mặc định 6 tháng)
+        try:
+            months = int(request.query_params.get('months', 6))
+        except ValueError:
+            months = 6
+            
+        start_date = timezone.now() - timedelta(days=months * 30)
+        
+        monthly_sales = opps.filter(status='WON', updated_at__gte=start_date)\
+            .annotate(month=TruncMonth('updated_at'))\
+            .values('month')\
+            .annotate(total=Sum('value'))\
+            .order_by('month')
+        
+        rep_performance = [
+            {"month": m['month'].strftime('%m/%Y'), "sales": m['total']} 
+            for m in monthly_sales
+        ]
+
         return Response({
             "expected_revenue": expected_revenue,
             "open_deals_count": open_deals_count,
@@ -196,6 +262,64 @@ class DashboardStatsView(APIView):
             "revenue_by_stage": revenue_by_stage,
             "upcoming_deals": upcoming_deals,
             "my_tasks": tasks_data,
+            "rep_performance": rep_performance,
+        })
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        user = request.user
+        
+        # 1. Scope dữ liệu
+        if user.role == 'REP':
+            opps = Opportunity.objects.filter(owner=user)
+        else:
+            opps = Opportunity.objects.all()
+
+        # 2. KPIs
+        revenue_deals = opps.filter(status__in=['OPEN', 'WON'])
+        expected_revenue = revenue_deals.aggregate(total=Sum('value'))['total'] or 0
+        open_deals_count = opps.filter(status='OPEN').count()
+        
+        last_30_days = timezone.now() - timedelta(days=30)
+        new_customers_count = Customer.objects.filter(created_at__gte=last_30_days).count()
+
+        won_count = opps.filter(status='WON').count()
+        closed_count = won_count + opps.filter(status='LOST').count()
+        win_rate = round((won_count / closed_count) * 100, 1) if closed_count > 0 else 0
+
+        # 3. Chart Data (Manager) - Doanh thu theo Giai đoạn
+        chart_data = opps.filter(status='OPEN').values('stage__name').annotate(total=Sum('value')).order_by('total')
+        revenue_by_stage = [{"name": i['stage__name'], "value": i['total']} for i in chart_data]
+
+        # 4. Upcoming Deals
+        upcoming_deals = opps.filter(status='OPEN', expected_close_date__gte=timezone.now().date()).order_by('expected_close_date')[:5].values('id', 'title', 'expected_close_date', 'value')
+
+        # 5. My Tasks
+        my_tasks = Task.objects.filter(assigned_to=user, is_completed=False).order_by('due_date')[:5]
+        tasks_data = TaskSerializer(my_tasks, many=True).data
+
+        # --- [MỚI] BIỂU ĐỒ HIỆU SUẤT CÁ NHÂN (REP PERFORMANCE) ---
+        # Thống kê doanh số WON trong 6 tháng gần nhất
+        six_months_ago = timezone.now() - timedelta(days=180)
+        monthly_sales = opps.filter(status='WON', updated_at__gte=six_months_ago)\
+            .annotate(month=TruncMonth('updated_at'))\
+            .values('month')\
+            .annotate(total=Sum('value'))\
+            .order_by('month')
+        
+        rep_performance = [
+            {"month": m['month'].strftime('%m/%Y'), "sales": m['total']} 
+            for m in monthly_sales
+        ]
+
+        return Response({
+            "expected_revenue": expected_revenue,
+            "open_deals_count": open_deals_count,
+            "new_customers_count": new_customers_count,
+            "win_rate": win_rate,
+            "revenue_by_stage": revenue_by_stage,
+            "upcoming_deals": upcoming_deals,
+            "my_tasks": tasks_data,
+            "rep_performance": rep_performance, # <--- Dữ liệu mới
         })
     
 class ExportOpportunityView(APIView):

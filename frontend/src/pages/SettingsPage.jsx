@@ -234,7 +234,6 @@ const UserListSettings = () => {
             <Select>
               <Select.Option value="REP">Nhân viên Kinh doanh (Sales Rep)</Select.Option>
               <Select.Option value="MANAGER">Trưởng phòng (Manager)</Select.Option>
-              <Select.Option value="ADMIN">Quản trị viên (Admin)</Select.Option>
             </Select>
           </Form.Item>
           {!editingUser && (
