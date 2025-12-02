@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, message, Space, Popconfirm, Tooltip, Row, Col } from 'antd';
+import { Table, Button, Modal, Form, Input, message, Space, Popconfirm, Tooltip, Row, Col, Upload } from 'antd';
 import { 
   UserAddOutlined, ReloadOutlined, MailOutlined, 
   PhoneOutlined, EditOutlined, DeleteOutlined, 
@@ -7,13 +7,19 @@ import {
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom'; 
 import axiosClient from '../api/axiosClient';
-import { Upload } from 'antd';
 
 const CustomerPage = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   
+  // --- STATE PHÂN TRANG MỚI ---
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+
   // State cho Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -23,23 +29,35 @@ const CustomerPage = () => {
   useEffect(() => {
     document.title = "Danh sách Khách hàng - Core CRM";
     const delayDebounceFn = setTimeout(() => {
-      fetchCustomers();
+      // Khi search đổi, reset về trang 1
+      fetchCustomers(1, pagination.pageSize);
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [searchText]);
 
-  const fetchCustomers = async () => {
+  // --- HÀM TẢI DỮ LIỆU (CÓ PHÂN TRANG) ---
+  const fetchCustomers = async (page = 1, pageSize = 10) => {
     setLoading(true);
     try {
-      const url = searchText ? `customers/?search=${searchText}` : 'customers/';
-      const response = await axiosClient.get(url);
+      // Xây dựng query parameters
+      const params = new URLSearchParams();
+      params.append('page', page);
+      params.append('page_size', pageSize);
+      if (searchText) params.append('search', searchText);
+
+      const response = await axiosClient.get(`customers/?${params.toString()}`);
       
-      if (Array.isArray(response.data)) {
-        setData(response.data);
-      } else if (response.data && Array.isArray(response.data.results)) {
+      if (response.data && Array.isArray(response.data.results)) {
         setData(response.data.results);
-      } else {
-        setData([]);
+        // Cập nhật thông tin phân trang từ server trả về
+        setPagination({
+          current: page,
+          pageSize: pageSize,
+          total: response.data.count, // Tổng số bản ghi trong DB
+        });
+      } else if (Array.isArray(response.data)) {
+        // Fallback nếu backend chưa bật phân trang
+        setData(response.data);
       }
     } catch (error) {
       message.error('Không thể tải danh sách khách hàng');
@@ -48,7 +66,12 @@ const CustomerPage = () => {
     }
   };
 
+  // --- XỬ LÝ KHI CHUYỂN TRANG TRÊN BẢNG ---
+  const handleTableChange = (newPagination) => {
+    fetchCustomers(newPagination.current, newPagination.pageSize);
+  };
 
+  // --- CÁC HÀM XỬ LÝ MODAL & CRUD (GIỮ NGUYÊN) ---
   const handleOpenCreate = () => {
     setEditingId(null);
     form.resetFields();
@@ -73,7 +96,7 @@ const CustomerPage = () => {
       }
       form.resetFields();
       setIsModalOpen(false);
-      fetchCustomers();
+      fetchCustomers(pagination.current, pagination.pageSize); // Tải lại trang hiện tại
     } catch (error) {
       message.error('Có lỗi xảy ra!');
     } finally {
@@ -85,33 +108,22 @@ const CustomerPage = () => {
     try {
       await axiosClient.delete(`customers/${id}/`);
       message.success('Đã xóa khách hàng');
-      fetchCustomers();
+      fetchCustomers(1, pagination.pageSize); // Xóa xong về trang 1 cho an toàn
     } catch (error) {
       message.error('Lỗi xóa (Có thể đang có giao dịch liên kết)');
     }
   };
 
-  const handleUpload = async (info) => {
-    const { file } = info;
-    if (file.status !== 'uploading') {
-        // Antd Upload tự động set status, ta chỉ cần chặn upload mặc định và tự gọi API
-        return; 
-    }
-  };
-
-  // Cấu hình cho component Upload
   const uploadProps = {
     name: 'file',
-    showUploadList: false, // Không hiện danh sách file đã chọn (upload xong là thôi)
+    showUploadList: false,
     beforeUpload: async (file) => {
-      // 1. Kiểm tra file
       const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv');
       if (!isCSV) {
         message.error('Bạn chỉ được upload file CSV!');
         return Upload.LIST_IGNORE;
       }
 
-      // 2. Gọi API Import ngay lập tức
       const formData = new FormData();
       formData.append('file', file);
 
@@ -121,16 +133,14 @@ const CustomerPage = () => {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         message.success({ content: response.data.message, key: 'importMsg' });
-        fetchCustomers(); // Tải lại bảng sau khi import
+        fetchCustomers();
       } catch (error) {
         message.error({ content: 'Lỗi khi nhập file!', key: 'importMsg' });
       }
-
-      return false; // Ngăn không cho antd tự upload (vì ta đã gọi API thủ công)
+      return false;
     },
   };
-  
-  // Hàm tải file mẫu (để người dùng biết nhập cột gì)
+
   const downloadTemplate = () => {
       const csvContent = "\uFEFFTên Khách hàng,Email,SĐT\nNguyễn Văn A,a@test.com,0909123456";
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -147,7 +157,6 @@ const CustomerPage = () => {
       title: 'Tên Khách hàng',
       dataIndex: 'name',
       key: 'name',
-      // --- DÒNG BẠN VỪA SỬA (Giờ đã hoạt động vì có import Link) ---
       render: (text, record) => (
         <Link to={`/customers/${record.id}`} style={{ fontWeight: 600, color: '#1890ff' }}>
             {text}
@@ -206,14 +215,23 @@ const CustomerPage = () => {
                     <Upload {...uploadProps}>
                         <Button icon={<UploadOutlined />}>Import CSV</Button>
                     </Upload>
-                    <Button icon={<ReloadOutlined />} onClick={fetchCustomers}>Tải lại</Button>
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchCustomers(1, pagination.pageSize)}>Tải lại</Button>
                     <Button type="primary" icon={<UserAddOutlined />} onClick={handleOpenCreate}>Thêm khách hàng</Button>
                 </Space>
             </Col>
         </Row>
       </div>
 
-      <Table columns={columns} dataSource={data} rowKey="id" loading={loading} bordered pagination={{ pageSize: 8 }} />
+      <Table 
+        columns={columns} 
+        dataSource={data} 
+        rowKey="id" 
+        loading={loading} 
+        bordered 
+        // --- CẤU HÌNH PHÂN TRANG MỚI ---
+        pagination={pagination}
+        onChange={handleTableChange}
+      />
 
       <Modal title={editingId ? "Cập nhật Khách hàng" : "Thêm Khách hàng Mới"} open={isModalOpen} onCancel={() => setIsModalOpen(false)} footer={null}>
         <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 20 }}>

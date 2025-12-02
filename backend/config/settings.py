@@ -140,6 +140,9 @@ REST_FRAMEWORK = {
     # Phân trang: Mặc định mỗi trang trả về 10 kết quả (cho list view)
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
+    'PAGE_SIZE_QUERY_PARAM': 'page_size',
+    'MAX_PAGE_SIZE': 1000,
+
 
     # Xác thực: Chấp nhận Session (cho trình duyệt) và Basic Auth (cho Postman đơn giản)
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -161,6 +164,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'nguyenphucuong12c1@gmail.com'  # <--- Thay bằng Gmail của bạn
-EMAIL_HOST_PASSWORD = 'pmpu frrd ldjm ghgd'    # <--- Thay bằng 16 ký tự App Password vừa lấy
+EMAIL_HOST_USER = 'nguyenphucuong12c1@gmail.com'  
+EMAIL_HOST_PASSWORD = 'pmpu frrd ldjm ghgd'    
 DEFAULT_FROM_EMAIL = 'Core CRM <email_cua_ban@gmail.com>'

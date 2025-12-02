@@ -40,37 +40,53 @@ const OpportunityPage = () => {
   useEffect(() => {
     document.title = "Quản lý Cơ hội - Core CRM";
     fetchStages();
-    // Nếu là quản lý thì tải thêm danh sách nhân viên
     if (isManager) {
         fetchUsers();
     }
     fetchOpportunities();
   }, [filters]);
 
-  const fetchOpportunities = async () => {
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+
+  const fetchOpportunities = async (page = 1, pageSize = 10) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      params.append('page', page);           // Trang số mấy
+      params.append('page_size', pageSize);
       if (filters.search) params.append('search', filters.search);
       if (filters.status) params.append('status', filters.status);
       if (filters.stage) params.append('stage', filters.stage);
-      if (filters.owner) params.append('owner', filters.owner); // Gửi tham số owner
+      if (filters.owner) params.append('owner', filters.owner); 
 
       const response = await axiosClient.get(`opportunities/?${params.toString()}`);
       
-      if (Array.isArray(response.data)) {
-        setData(response.data);
-      } else if (response.data && Array.isArray(response.data.results)) {
-        setData(response.data.results);
-      } else {
-        setData([]);
-      }
+      if (response.data && Array.isArray(response.data.results)) {
+      setData(response.data.results);
+      setPagination({
+        current: page,
+        pageSize: pageSize,
+        total: response.data.count,
+      });
+    }
     } catch (error) {
       console.error(error);
       message.error('Không thể tải dữ liệu!');
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchOpportunities(1, pagination.pageSize);
+  }, [filters]);
+
+  const handleTableChange = (newPagination) => {
+    fetchOpportunities(newPagination.current, newPagination.pageSize);
   };
 
   const fetchStages = async () => {
@@ -319,6 +335,8 @@ const OpportunityPage = () => {
         loading={loading}
         bordered
         locale={{ emptyText: 'Không tìm thấy dữ liệu phù hợp' }}
+        pagination={pagination}
+        onChange={handleTableChange} 
       />
 
       <Modal title={editingId ? "Cập nhật" : "Tạo mới"} open={isModalOpen} onCancel={() => setIsModalOpen(false)} footer={null} destroyOnClose>

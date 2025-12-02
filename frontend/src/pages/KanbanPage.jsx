@@ -178,7 +178,7 @@ const KanbanPage = () => {
     try {
       const [stageRes, oppRes] = await Promise.all([
         axiosClient.get('stages/'),
-        axiosClient.get('opportunities/')
+        axiosClient.get('opportunities/?page_size=1000')
       ]);
       const rawStages = Array.isArray(stageRes.data) ? stageRes.data : stageRes.data.results;
       const rawOpps = Array.isArray(oppRes.data) ? oppRes.data : oppRes.data.results;
