@@ -10,6 +10,7 @@ import csv
 from django.http import HttpResponse
 import io
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.pagination import PageNumberPagination
 from django.core.mail import send_mail # <--- Import để gửi mail
 
 from .models import Customer, PipelineStage, Opportunity, Activity, Task, Product, OpportunityItem
@@ -19,10 +20,16 @@ from .serializers import (
     OpportunityItemSerializer
 )
 
+class FlexiblePagination(PageNumberPagination):
+    page_size = 10                  # Mặc định là 10
+    page_size_query_param = 'page_size' # Cho phép client chỉnh qua ?page_size=...
+    max_page_size = 1000            # Giới hạn tối đa 1000
+
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = FlexiblePagination
     
     def get_queryset(self):
         queryset = Customer.objects.all()
@@ -34,12 +41,25 @@ class CustomerViewSet(viewsets.ModelViewSet):
 class PipelineStageViewSet(viewsets.ModelViewSet):
     queryset = PipelineStage.objects.all()
     serializer_class = PipelineStageSerializer
-    permission_classes = [IsManagerOrAdmin]
+    
+    def get_permissions(self):
+        """
+        - Xem (List/Retrieve): Cho phép tất cả user đã đăng nhập (để Rep thấy Kanban).
+        - Sửa/Xóa (Create/Update/Destroy): Chỉ cho phép Manager/Admin.
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [IsManagerOrAdmin()]
+
+
 
 class OpportunityViewSet(viewsets.ModelViewSet):
     queryset = Opportunity.objects.all()
     serializer_class = OpportunitySerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = FlexiblePagination
+    ordering_fields = ['id', 'created_at', 'value', 'expected_close_date']
+    ordering = ['-created_at']
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -165,6 +185,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         return [IsManagerOrAdmin()]
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
 
 class OpportunityItemViewSet(viewsets.ModelViewSet):
     queryset = OpportunityItem.objects.all()
