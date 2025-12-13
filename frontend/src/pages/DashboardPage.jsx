@@ -1,16 +1,16 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Card, Col, Row, Statistic, List, Spin, Empty, Tag, Tooltip, Button, Space, Select } from 'antd';
-import { 
-  DollarCircleOutlined, 
-  ShoppingOutlined, 
-  UserOutlined, 
+import {
+  DollarCircleOutlined,
+  ShoppingOutlined,
+  UserOutlined,
   TrophyOutlined,
   CalendarOutlined,
   RightOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined
 } from '@ant-design/icons';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, Legend, PieChart, Pie,
 } from 'recharts';
 import { Link } from 'react-router-dom';
@@ -23,7 +23,7 @@ const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   // State bộ lọc thời gian cho biểu đồ hiệu suất
-  const [timeRange, setTimeRange] = useState(6); 
+  const [timeRange, setTimeRange] = useState(6);
 
   useEffect(() => {
     document.title = "Tổng quan - Core CRM";
@@ -114,52 +114,52 @@ const DashboardPage = () => {
 
   // --- [CẬP NHẬT] BIỂU ĐỒ HIỆU SUẤT CÁ NHÂN (DẠNG CỘT + BỘ LỌC) ---
   const RepPerformanceChart = () => (
-    <Card 
-      title={<span>📈 Hiệu suất Bán hàng</span>} 
-      bordered={false} 
-      style={cardStyle} 
+    <Card
+      title={<span>📈 Hiệu suất Bán hàng</span>}
+      bordered={false}
+      style={cardStyle}
       headStyle={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}
       extra={
-        <Select 
-            defaultValue={6} 
-            style={{ width: 120 }} 
-            onChange={(val) => setTimeRange(val)}
-            size="small"
+        <Select
+          defaultValue={6}
+          style={{ width: 120 }}
+          onChange={(val) => setTimeRange(val)}
+          size="small"
         >
-            <Select.Option value={3}>3 tháng</Select.Option>
-            <Select.Option value={6}>6 tháng</Select.Option>
-            <Select.Option value={9}>9 tháng</Select.Option>
-            <Select.Option value={12}>12 tháng</Select.Option>
+          <Select.Option value={3}>3 tháng</Select.Option>
+          <Select.Option value={6}>6 tháng</Select.Option>
+          <Select.Option value={9}>9 tháng</Select.Option>
+          <Select.Option value={12}>12 tháng</Select.Option>
         </Select>
       }
     >
-        {data.rep_performance && data.rep_performance.length > 0 ? (
-            <div style={{ width: '100%', height: 320 }}>
-                <ResponsiveContainer>
-                    <BarChart data={data.rep_performance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="month" style={{ fontSize: 12 }} />
-                        <YAxis hide />
-                        <RechartsTooltip 
-                            cursor={{ fill: 'transparent' }}
-                            contentStyle={{ borderRadius: 8 }} 
-                            formatter={(value) => new Intl.NumberFormat('vi-VN').format(value) + ' đ'} 
-                        />
-                        <Legend />
-                        <Bar 
-                            dataKey="sales" 
-                            name="Doanh số Thắng" 
-                            fill="#52c41a" 
-                            radius={[4, 4, 0, 0]} 
-                            barSize={30}
-                            animationDuration={1000}
-                        />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-        ) : (
-            <Empty description="Chưa có đơn hàng Thắng nào trong khoảng thời gian này" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '50px 0' }} />
-        )}
+      {data.rep_performance && data.rep_performance.length > 0 ? (
+        <div style={{ width: '100%', height: 320 }}>
+          <ResponsiveContainer>
+            <BarChart data={data.rep_performance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="month" style={{ fontSize: 12 }} />
+              <YAxis hide />
+              <RechartsTooltip
+                cursor={{ fill: 'transparent' }}
+                contentStyle={{ borderRadius: 8 }}
+                formatter={(value) => new Intl.NumberFormat('vi-VN').format(value) + ' đ'}
+              />
+              <Legend />
+              <Bar
+                dataKey="sales"
+                name="Doanh số Thắng"
+                fill="#52c41a"
+                radius={[4, 4, 0, 0]}
+                barSize={30}
+                animationDuration={1000}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <Empty description="Chưa có đơn hàng Thắng nào trong khoảng thời gian này" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '50px 0' }} />
+      )}
     </Card>
   );
 
@@ -174,84 +174,84 @@ const DashboardPage = () => {
     };
 
     return (
-      <Card 
-        title={<span>📋 Việc cần làm gấp <Tag color="blue" style={{marginLeft: 5}}>{data.my_tasks?.length || 0}</Tag></span>} 
-        bordered={false} 
+      <Card
+        title={<span>📋 Việc cần làm gấp <Tag color="blue" style={{ marginLeft: 5 }}>{data.my_tasks?.length || 0}</Tag></span>}
+        bordered={false}
         style={cardStyle}
         headStyle={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}
         bodyStyle={{ padding: '0 12px' }}
       >
-          <List
-              itemLayout="horizontal"
-              dataSource={data.my_tasks || []}
-              locale={{ 
-                emptyText: <Empty description="Tuyệt vời! Hết việc rồi." image={Empty.PRESENTED_IMAGE_SIMPLE} /> 
-              }}
-              renderItem={item => (
-                  <List.Item
-                      actions={[
-                          <Tooltip title={item.is_completed ? "Đánh dấu chưa xong" : "Đánh dấu hoàn thành"}>
-                              <Button 
-                                type="text" 
-                                shape="circle"
-                                icon={<CheckCircleOutlined style={{ fontSize: 18 }} />}
-                                style={{ 
-                                  color: item.is_completed ? '#52c41a' : '#bfbfbf',
-                                  backgroundColor: item.is_completed ? '#f6ffed' : 'transparent'
-                                }}
-                                onClick={() => handleToggleTask(item)}
-                              />
-                          </Tooltip>
-                      ]}
-                      style={{ opacity: item.is_completed ? 0.6 : 1, transition: 'all 0.3s' }}
-                  >
-                      <List.Item.Meta
-                          avatar={
-                              <div style={{ 
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                width: 36, height: 36, borderRadius: 8, 
-                                background: item.priority === 'HIGH' ? '#fff1f0' : '#e6f7ff',
-                                color: item.priority === 'HIGH' ? '#cf1322' : '#1890ff'
-                              }}>
-                                {item.priority === 'HIGH' ? <ClockCircleOutlined /> : <CalendarOutlined />}
-                              </div>
-                          }
-                          title={
-                              <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 500, textDecoration: item.is_completed ? 'line-through' : 'none' }}>
-                                    {item.title}
-                                </span>
-                                {getPriorityTag(item.priority)}
-                              </Space>
-                          }
-                          description={
-                              <div style={{ fontSize: 12, marginTop: 2 }}>
-                                  <Space split="|">
-                                    <span style={{ color: dayjs(item.due_date).isBefore(dayjs()) ? 'red' : '#8c8c8c' }}>
-                                      {dayjs(item.due_date).format('DD/MM HH:mm')}
-                                    </span>
-                                    {item.opportunity_name && (
-                                        <Link to={`/opportunities/${item.opportunity}`} style={{ color: '#1890ff' }}>
-                                            🔗 {item.opportunity_name}
-                                        </Link>
-                                    )}
-                                  </Space>
-                              </div>
-                          }
-                      />
-                  </List.Item>
-              )}
-          />
+        <List
+          itemLayout="horizontal"
+          dataSource={data.my_tasks || []}
+          locale={{
+            emptyText: <Empty description="Tuyệt vời! Hết việc rồi." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          }}
+          renderItem={item => (
+            <List.Item
+              actions={[
+                <Tooltip title={item.is_completed ? "Đánh dấu chưa xong" : "Đánh dấu hoàn thành"}>
+                  <Button
+                    type="text"
+                    shape="circle"
+                    icon={<CheckCircleOutlined style={{ fontSize: 18 }} />}
+                    style={{
+                      color: item.is_completed ? '#52c41a' : '#bfbfbf',
+                      backgroundColor: item.is_completed ? '#f6ffed' : 'transparent'
+                    }}
+                    onClick={() => handleToggleTask(item)}
+                  />
+                </Tooltip>
+              ]}
+              style={{ opacity: item.is_completed ? 0.6 : 1, transition: 'all 0.3s' }}
+            >
+              <List.Item.Meta
+                avatar={
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 36, height: 36, borderRadius: 8,
+                    background: item.priority === 'HIGH' ? '#fff1f0' : '#e6f7ff',
+                    color: item.priority === 'HIGH' ? '#cf1322' : '#1890ff'
+                  }}>
+                    {item.priority === 'HIGH' ? <ClockCircleOutlined /> : <CalendarOutlined />}
+                  </div>
+                }
+                title={
+                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 500, textDecoration: item.is_completed ? 'line-through' : 'none' }}>
+                      {item.title}
+                    </span>
+                    {getPriorityTag(item.priority)}
+                  </Space>
+                }
+                description={
+                  <div style={{ fontSize: 12, marginTop: 2 }}>
+                    <Space split="|">
+                      <span style={{ color: dayjs(item.due_date).isBefore(dayjs()) ? 'red' : '#8c8c8c' }}>
+                        {dayjs(item.due_date).format('DD/MM HH:mm')}
+                      </span>
+                      {item.opportunity_name && (
+                        <Link to={`/opportunities/${item.opportunity}`} style={{ color: '#1890ff' }}>
+                          🔗 {item.opportunity_name}
+                        </Link>
+                      )}
+                    </Space>
+                  </div>
+                }
+              />
+            </List.Item>
+          )}
+        />
       </Card>
     );
   };
 
   // --- 4. DANH SÁCH DEADLINES ---
   const UpcomingList = () => (
-    <Card 
-      title={<span>🔥 Giao dịch sắp chốt (Deadlines)</span>} 
-      bordered={false} 
-      style={cardStyle}
+    <Card
+      title={<span>🔥 Giao dịch sắp chốt (Deadlines)</span>}
+      bordered={false}
+      style={{ ...cardStyle, height: 'auto', minHeight: 'fit-content' }}
       headStyle={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}
     >
       <List
@@ -268,7 +268,7 @@ const DashboardPage = () => {
                   <Space direction="vertical" size={0}>
                     <span>Ngày chốt: <b style={{ color: '#d48806' }}>{dayjs(item.expected_close_date).format('DD/MM/YYYY')}</b></span>
                     <Tag color="green" style={{ border: 0, background: '#f6ffed', color: '#389e0d', marginTop: 4 }}>
-                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', compactDisplay: 'short' }).format(item.value)}
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', compactDisplay: 'short' }).format(item.value)}
                     </Tag>
                   </Space>
                 </div>
@@ -285,43 +285,43 @@ const DashboardPage = () => {
     const COLORS = ['#ff4d4f', '#ff7a45', '#ffa940', '#ffc53d', '#bae637'];
 
     return (
-        <Card 
-            title={<span>📉 Phân tích Lý do Thất bại</span>} 
-            bordered={false} 
-            style={cardStyle} 
-            headStyle={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}
-        >
-            {data.lost_reason_data && data.lost_reason_data.length > 0 ? (
-                <div style={{ width: '100%', height: 320 }}>
-                    <ResponsiveContainer>
-                        <PieChart>
-                            <Pie
-                                data={data.lost_reason_data}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60} // Tạo biểu đồ hình bánh donut
-                                outerRadius={80}
-                                paddingAngle={5}
-                                dataKey="value"
-                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            >
-                                {data.lost_reason_data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <RechartsTooltip formatter={(value, name, props) => [value, props.payload.full_name]} />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            ) : (
-                <Empty description="Chưa có dữ liệu thất bại" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '50px 0' }} />
-            )}
-        </Card>
+      <Card
+        title={<span>📉 Phân tích Lý do Thất bại</span>}
+        bordered={false}
+        style={cardStyle}
+        headStyle={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}
+      >
+        {data.lost_reason_data && data.lost_reason_data.length > 0 ? (
+          <div style={{ width: '100%', height: 320 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={data.lost_reason_data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60} // Tạo biểu đồ hình bánh donut
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {data.lost_reason_data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip formatter={(value, name, props) => [value, props.payload.full_name]} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <Empty description="Chưa có dữ liệu thất bại" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '50px 0' }} />
+        )}
+      </Card>
     );
   };
 
-  
+
 
   return (
     <div>
@@ -331,19 +331,19 @@ const DashboardPage = () => {
       <KpiCards />
       <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
         {user?.role === 'MANAGER' ? (
-            <>
-              <Col xs={24} lg={14}><RevenueChart /></Col>
-              <Col xs={24} lg={10}><LostReasonChart /></Col> 
-              <Col xs={24} span={24} style={{marginTop: 16}}><UpcomingList /></Col>
-            </>
+          <>
+            <Col xs={24} lg={14}><RevenueChart /></Col>
+            <Col xs={24} lg={10}><LostReasonChart /></Col>
+            <Col xs={24} span={24} style={{ marginTop: 16 }}><UpcomingList /></Col>
+          </>
         ) : (
-            <>
-                <Col xs={24} lg={12}><MyTaskList /></Col>
-                <Col xs={24} lg={12}>
-                    <div style={{ marginBottom: 24 }}><RepPerformanceChart /></div>
-                    <UpcomingList />
-                </Col>
-            </>
+          <>
+            <Col xs={24} lg={12}><MyTaskList /></Col>
+            <Col xs={24} lg={12}>
+              <div style={{ marginBottom: 24 }}><RepPerformanceChart /></div>
+              <UpcomingList />
+            </Col>
+          </>
         )}
       </Row>
     </div>
